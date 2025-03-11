@@ -1,0 +1,38 @@
+清理session下载文档
+接口概述
+您可以通过调用该接口实现会话中断，可以通过查看请求示例，点击 curl命令示例 右侧的调试按钮验证业务接口调用效果。
+前提条件（查看APP_KEY）
+先进入菜单[主页->点击头像->APP_KEY]创建APP_KEY;然后调用'创建session'接口获取返回值 uniqueCode
+接口调用地址
+POST http://25.90.181.163/xlm-gateway-qvpcwi/sfm-api-gateway/gateway/agent/api/clearSession
+入参描述
+Header传参
+字段	数据类型	是否必填	描述	示例
+Authorization	String	是	APP_KEY	Bearer YOUR_APP_KEY
+Content-Type	String	是	Content-Type	application/json
+Body传参
+字段	数据类型	是否必填	描述	示例
+sessionId	String	是	会话ID	de454297-c547-440f-ae55-057a83a2d121 创建session接口的返回值uniqueCode
+出参描述
+字段	数据类型	描述	示例
+success	Boolean	是否成功	true
+请求示例
+curl命令示例
+curl -X 'POST' http://25.90.181.163/xlm-gateway-qvpcwi/sfm-api-gateway/gateway/agent/api/clearSession \ -H 'Authorization: Bearer YOUR_APP_KEY' \ -H 'Content-Type: application/json' \ -d '{ "sessionId": "de454297-c547-440f-ae55-057a83a2d121" }'
+响应示例
+非流式输出
+{ "success": true }
+状态码说明
+Http状态返回码	错误描述	错误释义
+403	GATEWAY PARAMETER MISSING!	网关必填参数缺失
+401	GATEWAY APP_KEY WRONG!	鉴权失败,无效 APP_KEY
+401	GATEWAY APP_KEY ALREADY EXPIRED!	鉴权失败,APP_KEY 已过期
+404	GATEWAY APP_PATH NOT FOUND!	无效的服务调用路径
+404	GATEWAY APP_PATH NOT REGISTER!	当前服务调用路径未注册
+403	GATEWAY HEADER PARAMETER MISSING!	业务所需必填参数缺失
+404	GATEWAY ROUTE URL NOT FOUND!	无效的目标服务地址
+401	GATEWAY LIMIT !	服务触发限流,请稍后再试
+401	GATEWAY LIMIT !	服务链接已达上限,请稍后再试
+500	GATEWAY_ERROR_CONNECTION_REFUSE_EXCEPTION	目标服务拒绝连接
+500	GATEWAY_ERROR_NO_RESPONSE_EXCEPTION	目标服务无响应
+

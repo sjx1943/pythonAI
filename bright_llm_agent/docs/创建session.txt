@@ -1,0 +1,39 @@
+创建session
+接口概述
+您可以通过接口创建一个全新的agent会话，可以通过查看请求示例，点击 curl命令示例 右侧的调试按钮验证业务接口调用效果。
+前提条件
+先进入菜单[主页->点击头像->APP_KEY]创建APP_KEY;然后进入 智能体页面,完成智能体配置,获取智能体编码和版本编码或者配置输出版本
+接口调用地址
+POST http://25.90.181.163/xlm-gateway-qvpcwi/sfm-api-gateway/gateway/agent/api/createSession
+入参描述
+Header传参
+字段	数据类型	是否必填	描述	示例
+Authorization	String	是	APP_KEY	Bearer YOUR_APP_KEY
+Content-Type	String	是	Content-Type	application/json
+Body传参
+字段	数据类型	是否必填	描述	示例
+agentCode	String	是	智能体编码	e36a0ab1-b673-49d0-9534-1480a147c691
+agentVersion	String	否	智能体版本	1706863858334
+出参描述
+字段	数据类型	描述	示例
+success	Boolean	是否成功	true
+data	Object	返回数据	{"uniqueCode":"4bcaa882-9c54-4b78-9057-54db58591b5b"}
+请求示例
+curl命令示例
+curl -X 'POST' http://25.90.181.163/xlm-gateway-qvpcwi/sfm-api-gateway/gateway/agent/api/createSession \ -H 'Authorization: Bearer YOUR_APP_KEY' \ -H 'Content-Type: application/json' \ -d '{ "agentCode": "", "agentVersion": "" }'
+响应示例
+非流式输出
+{ "success": true, "data": { "uniqueCode": "4bcaa882-9c54-4b78-9057-54db58591b5b" }, "errorCode": null, "errorMsg": null }
+状态码说明
+Http状态返回码	错误描述	错误释义
+403	GATEWAY PARAMETER MISSING!	网关必填参数缺失
+401	GATEWAY APP_KEY WRONG!	鉴权失败,无效 APP_KEY
+401	GATEWAY APP_KEY ALREADY EXPIRED!	鉴权失败,APP_KEY 已过期
+404	GATEWAY APP_PATH NOT FOUND!	无效的服务调用路径
+404	GATEWAY APP_PATH NOT REGISTER!	当前服务调用路径未注册
+403	GATEWAY HEADER PARAMETER MISSING!	业务所需必填参数缺失
+404	GATEWAY ROUTE URL NOT FOUND!	无效的目标服务地址
+401	GATEWAY LIMIT !	服务触发限流,请稍后再试
+401	GATEWAY LIMIT !	服务链接已达上限,请稍后再试
+500	GATEWAY_ERROR_CONNECTION_REFUSE_EXCEPTION	目标服务拒绝连接
+500	GATEWAY_ERROR_NO_RESPONSE_EXCEPTION	目标服务无响应

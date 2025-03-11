@@ -1,0 +1,56 @@
+发起agent调用
+接口概述
+您可以通过接口在已有会话的基础上对agent进行提问，可以通过查看请求示例，点击 curl命令示例 右侧的调试按钮验证业务接口调用效果。
+前提条件
+先进入菜单[主页->点击头像->APP_KEY]创建APP_KEY;然后调用'创建session'接口获取返回值 uniqueCode
+接口调用地址
+POST http://25.90.181.163/xlm-gateway-qvpcwi/sfm-api-gateway/gateway/agent/api/run
+入参描述
+Header传参
+字段	数据类型	是否必填	描述	示例
+Authorization	String	是	APP_KEY	Bearer YOUR_APP_KEY
+Content-Type	String	是	Content-Type	application/json
+Body传参
+字段	数据类型	是否必填	描述	示例
+sessionId	String	是	sessionId	bd962db7-b1c8-4466-a2cc-41b9b67cd94b 创建session接口的返回值uniqueCode
+stream	Boolean	是	是否流式	true
+delta	Body	是	当stream=true,控制是否不追加新文本	true 默认每次输出新内容,不包含前序输出的文本
+message	Object	是	请求消息体	{"text":"帮我订一张明天从上海去苏黎世的机票","metadata":{}, "attachments":[{"url":"","name":""}]}
+出参描述
+字段	数据类型	描述	示例
+object	String	数据类型	message.delta 输出文本块
+thought.delta 思考过程块
+error 错误信息
+role	String	角色	assistant
+content	Object	数据内容	object=message.delta场景 : {"type":"text","text":{"value":"智能体回答内容增量"}}
+object=thought.delta场景 : {"type":"text","data":"思考内容增量"}
+object=error场景 {"errorMsg": "错误信息内容"}
+metadata	Object	扩展字段	{"key":"value"}
+end	Boolean	流式(object=message.delta)场景 标记文本输出是否结束	false|true
+sessionId	String	当前会话ID	-
+requestId	String	当前运行的请求ID	-
+success	Boolean	非流式-业务是否成功	true
+data	Object	非流式-业务响应	{}
+errorCode	Boolean	非流式-业务错误码	true
+errorMsg	Boolean	非流式-业务错误描述	true
+请求示例
+curl命令示例
+curl -X 'POST' http://25.90.181.163/xlm-gateway-qvpcwi/sfm-api-gateway/gateway/agent/api/run \ -H 'Authorization: Bearer YOUR_APP_KEY' \ -H 'Content-Type: application/json' \ -d '{ "stream":true, "delta":true, "sessionId": "7af650e7-ed57-498d-8081-fe1dea5361fa", "message":{ "text":"帮我订一张明天从上海去苏黎世的机票", "metadata":{}, "attachments":[] } }'
+响应示例
+流式输出
+data: {"object": "message.delta","end":false,"role": "assistant","sessionId":"de454297-c547-440f-ae55-057a83a2d121","content": [{"type":"text","text": {"value": "智能体回答内容增量"}}],"metadata": {"key": "value"}} data: {"object": "thought.delta","role": "assistant","sessionId":"de454297-c547-440f-ae55-057a83a2d121","content": {"type":"text","data":"思考内容增量"}} data: {"object": "error","role": "assistant","sessionId":"de454297-c547-440f-ae55-057a83a2d121","content": {"errorMsg": "错误信息内容"}} data:{"content":{"data":"您好","type":"text"},"id":"323ef0f2f57e445fbec343f62441c608","object":"thought.delta"} data:{"content":{"data":"！","type":"text"},"id":"323ef0f2f57e445fbec343f62441c608","object":"thought.delta"} data:{"content":{"data":"请问","type":"text"},"id":"323ef0f2f57e445fbec343f62441c608","object":"thought.delta"} data:{"content":{"data":"有什么可以帮助您的？","type":"text"},"id":"323ef0f2f57e445fbec343f62441c608","object":"thought.delta"} data:{"content":{"data":"","type":"text"},"id":"323ef0f2f57e445fbec343f62441c608","object":"thought.delta"} data:{"content":[{"text":{"value":"您好"},"type":"text"}],"end":false,"gmtCreate":"2024-09-19 11:52:56.012","id":"9b0a21677f4a4512935c0e96977f292b","metadata":{},"requestId":"6d511a54-d95f-419c-9d34-02e86ea050e4","role":"assistant","sessionId":"7af650e7-ed57-498d-8081-fe1dea5361fa","useage":{"uiTaskId":"23ce3bf3-5248-4293-8326-bdb7f452a092"},"object":"message.delta"} data:{"content":[{"text":{"value":"！"},"type":"text"}],"end":false,"gmtCreate":"2024-09-19 11:52:56.012","id":"9b0a21677f4a4512935c0e96977f292b","metadata":{},"requestId":"6d511a54-d95f-419c-9d34-02e86ea050e4","role":"assistant","sessionId":"7af650e7-ed57-498d-8081-fe1dea5361fa","useage":{"uiTaskId":"23ce3bf3-5248-4293-8326-bdb7f452a092"},"object":"message.delta"} data:{"content":[{"text":{"value":"请问"},"type":"text"}],"end":false,"gmtCreate":"2024-09-19 11:52:56.012","id":"9b0a21677f4a4512935c0e96977f292b","metadata":{},"requestId":"6d511a54-d95f-419c-9d34-02e86ea050e4","role":"assistant","sessionId":"7af650e7-ed57-498d-8081-fe1dea5361fa","useage":{"uiTaskId":"23ce3bf3-5248-4293-8326-bdb7f452a092"},"object":"message.delta"} data:{"content":[{"text":{"value":"有什么可以帮助您的？"},"type":"text"}],"end":false,"gmtCreate":"2024-09-19 11:52:56.012","id":"9b0a21677f4a4512935c0e96977f292b","metadata":{},"requestId":"6d511a54-d95f-419c-9d34-02e86ea050e4","role":"assistant","sessionId":"7af650e7-ed57-498d-8081-fe1dea5361fa","useage":{"uiTaskId":"23ce3bf3-5248-4293-8326-bdb7f452a092"},"object":"message.delta"} data:{"content":[{"text":{"value":""},"type":"text"}],"end":true,"gmtCreate":"2024-09-19 11:52:56.012","id":"9b0a21677f4a4512935c0e96977f292b","metadata":{},"requestId":"6d511a54-d95f-419c-9d34-02e86ea050e4","role":"assistant","sessionId":"7af650e7-ed57-498d-8081-fe1dea5361fa","useage":{"uiTaskId":"23ce3bf3-5248-4293-8326-bdb7f452a092"},"object":"message.delta"}
+非流式输出
+{ "success": true, "data": { "message": { "role": "assistant", "content": [{ "type": "text", "text": { "value": "你好！有什么我能帮助你的吗？" } },{ "type": "image", "image": { "url": "" } }], "metadata": null }, "thoughts": [{ "role": "assistant", "content": { "type": "text", "data": "" } } ], "error": null }, "errorCode": null, "errorMsg": null }
+状态码说明
+Http状态返回码	错误描述	错误释义
+403	GATEWAY PARAMETER MISSING!	网关必填参数缺失
+401	GATEWAY APP_KEY WRONG!	鉴权失败,无效 APP_KEY
+401	GATEWAY APP_KEY ALREADY EXPIRED!	鉴权失败,APP_KEY 已过期
+404	GATEWAY APP_PATH NOT FOUND!	无效的服务调用路径
+404	GATEWAY APP_PATH NOT REGISTER!	当前服务调用路径未注册
+403	GATEWAY HEADER PARAMETER MISSING!	业务所需必填参数缺失
+404	GATEWAY ROUTE URL NOT FOUND!	无效的目标服务地址
+401	GATEWAY LIMIT !	服务触发限流,请稍后再试
+401	GATEWAY LIMIT !	服务链接已达上限,请稍后再试
+500	GATEWAY_ERROR_CONNECTION_REFUSE_EXCEPTION	目标服务拒绝连接
+500	GATEWAY_ERROR_NO_RESPONSE_EXCEPTION	目标服务无响应

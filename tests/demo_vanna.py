@@ -1,8 +1,8 @@
 from vanna.remote import VannaDefault
-vn = VannaDefault(model='chinook', api_key='xxx')
+vn = VannaDefault(model='chinook', api_key='6b642793ffe74f0cad9a55595df457c1')
 # vn.connect_to_sqlite('https://vanna.ai/Chinook.sqlite')
 vn.connect_to_sqlite('Chinook.sqlite')
-vn.ask('专辑销量最好的3位艺术家的名字是?')
+vn.ask('专辑销量最好的10位艺术家的名字是?')
 
 from vanna.flask import VannaFlaskApp
 VannaFlaskApp(vn).run()
