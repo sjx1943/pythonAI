@@ -1,63 +1,101 @@
+from fastapi.testclient import TestClient
+from fastapi_test import app  # 假设你的FastAPI应用保存在main.py文件中
+import pytest
+
+client = TestClient(app)
+
+# def test_create_user():
+#     response = client.post("/users", json={"name": "John Doe", "email": "john.doe@example.com", "age": 30})
+#     assert response.status_code == 200
+#     print(response.json())
+#     assert response.json() == {"user_id": 123, "name": "John Doe", "email": "john.doe@example.com", "age": 30}
+
+# def test_read_books():
+#     response = client.get("/books")
+#     assert response.status_code == 200
+#     assert response.json() == [{"title": "FastAPI入门", "author": "顶级专家"}]
+#
+#
+# def test_read_book1():
+#     # 测试正常情况下的书籍读取
+#     response = client.get("/books/2")
+#     assert response.status_code == 200
+#     assert response.json() == {"book_id": 1, "title": "FastAPI进阶", "author": "魔法大师"}
+#
 
 
-def test_regular_imports():
-    from vanna.anthropic.anthropic_chat import Anthropic_Chat
-    from vanna.azuresearch.azuresearch_vector import AzureAISearch_VectorStore
-    from vanna.base.base import VannaBase
-    from vanna.bedrock.bedrock_converse import Bedrock_Converse
-    from vanna.chromadb.chromadb_vector import ChromaDB_VectorStore
-    from vanna.faiss.faiss import FAISS
-    from vanna.google.bigquery_vector import BigQuery_VectorStore
-    from vanna.google.gemini_chat import GoogleGeminiChat
-    from vanna.hf.hf import Hf
-    from vanna.local import LocalContext_OpenAI
-    from vanna.marqo.marqo import Marqo_VectorStore
-    from vanna.milvus.milvus_vector import Milvus_VectorStore
-    from vanna.mistral.mistral import Mistral
-    from vanna.ollama.ollama import Ollama
-    from vanna.openai.openai_chat import OpenAI_Chat
-    from vanna.openai.openai_embeddings import OpenAI_Embeddings
-    from vanna.opensearch.opensearch_vector import OpenSearch_VectorStore
-    from vanna.opensearch.opensearch_vector_semantic import (
-      OpenSearch_Semantic_VectorStore,
-    )
-    from vanna.pgvector.pgvector import PG_VectorStore
-    from vanna.pinecone.pinecone_vector import PineconeDB_VectorStore
-    from vanna.qdrant.qdrant import Qdrant_VectorStore
-    from vanna.qianfan.Qianfan_Chat import Qianfan_Chat
-    from vanna.qianfan.Qianfan_embeddings import Qianfan_Embeddings
-    from vanna.qianwen.QianwenAI_chat import QianWenAI_Chat
-    from vanna.qianwen.QianwenAI_embeddings import QianWenAI_Embeddings
-    from vanna.remote import VannaDefault
-    from vanna.vannadb.vannadb_vector import VannaDB_VectorStore
-    from vanna.weaviate.weaviate_vector import WeaviateDatabase
-    from vanna.xinference.xinference import Xinference
-    from vanna.ZhipuAI.ZhipuAI_Chat import ZhipuAI_Chat
-    from vanna.ZhipuAI.ZhipuAI_embeddings import ZhipuAI_Embeddings
 
-def test_shortcut_imports():
-    from vanna.anthropic import Anthropic_Chat
-    from vanna.azuresearch import AzureAISearch_VectorStore
-    from vanna.base import VannaBase
-    from vanna.chromadb import ChromaDB_VectorStore
-    from vanna.faiss import FAISS
-    from vanna.hf import Hf
-    from vanna.marqo import Marqo_VectorStore
-    from vanna.milvus import Milvus_VectorStore
-    from vanna.mistral import Mistral
-    from vanna.ollama import Ollama
-    from vanna.openai import OpenAI_Chat, OpenAI_Embeddings
-    from vanna.opensearch import (
-      OpenSearch_Semantic_VectorStore,
-      OpenSearch_VectorStore,
-    )
-    from vanna.pgvector import PG_VectorStore
-    from vanna.pinecone import PineconeDB_VectorStore
-    from vanna.qdrant import Qdrant_VectorStore
-    from vanna.qianfan import Qianfan_Chat, Qianfan_Embeddings
-    from vanna.qianwen import QianWenAI_Chat, QianWenAI_Embeddings
-    from vanna.vannadb import VannaDB_VectorStore
-    from vanna.vllm import Vllm
-    from vanna.weaviate import WeaviateDatabase
-    from vanna.xinference import Xinference
-    from vanna.ZhipuAI import ZhipuAI_Chat, ZhipuAI_Embeddings
+def test_read_author_book():
+    # 测试存在的作者和书籍
+    response = client.get("/authors/1/books/1")
+    assert response.status_code == 200
+    assert response.json() == {"title": "FastAPI入门", "author": "顶级专家"}
+
+    # 测试存在的作者但书籍不存在
+    response = client.get("/authors/1/books/99")
+    assert response.status_code == 200
+    assert response.json() == {"error": "书籍未找到"}
+
+    # 测试不存在的作者
+    response = client.get("/authors/99/books/1")
+    assert response.status_code == 200
+    assert response.json() == {"error": "作者未找到"}
+
+    # 测试存在的作者和另一本存在的书籍
+    response = client.get("/authors/1/books/2")
+    assert response.status_code == 200
+    assert response.json() == {"title": "FastAPI进阶", "author": "顶级专家"}
+
+    # 测试另一存在的作者和其书籍
+    response = client.get("/authors/2/books/3")
+    assert response.status_code == 200
+    assert response.json() == {"title": "FastAPI实战", "author": "魔法大师"}
+
+    # 测试存在的作者但书籍ID为0（通常书籍ID应为正整数）
+    response = client.get("/authors/1/books/0")
+    assert response.status_code == 200
+    assert response.json() == {"error": "书籍未找到"}
+
+    # 测试负数作者ID
+    response = client.get("/authors/-1/books/1")
+    assert response.status_code == 200
+    assert response.json() == {"error": "作者未找到"}
+
+    # 测试负数书籍ID
+    response = client.get("/authors/1/books/-1")
+    assert response.status_code == 200
+    assert response.json() == {"error": "书籍未找到"}
+
+def test_get_item():
+    # 测试正常情况
+    response = client.get("/products/electronics/1")
+    assert response.status_code == 200
+    assert response.json() == {"category": "electronics", "item_id": 1, "stock": 100}
+
+# def test_create_user_missing_age():
+#     response = client.post("/users", json={"name": "Jane Doe", "email": "jane.doe@example.com"})
+#     assert response.status_code == 200
+#     assert response.json() == {"user_id": 123, "name": "Jane Doe", "email": "jane.doe@example.com", "age": None}
+#
+# def test_create_user_invalid_email():
+#     response = client.post("/users", json={"name": "John Doe", "email": "invalid_email", "age": 30})
+#     assert response.status_code == 422
+#
+# def test_create_user_missing_name():
+#     response = client.post("/users", json={"email": "john.doe@example.com", "age": 30})
+#     assert response.status_code == 422
+#
+# def test_create_user_missing_email():
+#     response = client.post("/users", json={"name": "John Doe", "age": 30})
+#     assert response.status_code == 422
+#
+# def test_create_user_negative_age():
+#     response = client.post("/users", json={"name": "John Doe", "email": "john.doe@example.com", "age": -1})
+#     assert response.status_code == 422
+# #
+# def test_create_user_age_as_string():
+#     response = client.post("/users", json={"name": "sgg", "email": "john.doe@example.com", "age": "30"})
+#     print((response.json()))
+#     assert response.status_code == 422
+
+
