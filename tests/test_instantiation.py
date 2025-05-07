@@ -1,9 +1,11 @@
-import bcrypt
+import base64
 
-def hash_password(password):
-    password_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password_bytes, salt)
-    return hashed_password.decode('utf-8')
+def get_file_content_as_base64(path, urlencoded=False):
 
-print(hash_password("321"))
+    with open(path, "rb") as f:
+        content = base64.b64encode(f.read()).decode("utf8")
+        if urlencoded:
+            content = urllib.parse.quote_plus(content)
+    return content
+
+print(get_file_content_as_base64("flower.png"))
