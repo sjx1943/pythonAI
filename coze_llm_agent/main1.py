@@ -7,8 +7,8 @@ import gradio as gr
 import requests
 
 API_URL = "https://api.coze.cn"
-API_KEY = os.getenv("COZE_API_KEY", "pat_ReVpP7tKqIelQf8qRFeOzr6GQyMz6oUHCAwEt96EUVqIKvnxyKpRiuot5e4dXTBW")
-BOT_ID = os.getenv("COZE_BOT_ID", "7498247331134324745")
+API_KEY = os.getenv("COZE_API_KEY", "pat_ReVpP7tKqIelQf8qRFeOzr6GQyMz6oUHdXTBW")
+BOT_ID = os.getenv("COZE_BOT_ID", "749824733324745")
 
 user_conversations = {}
 
