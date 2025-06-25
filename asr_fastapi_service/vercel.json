@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/asr.py": {
+      "runtime": "python3.12"
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/asr/(.*)",
+      "dest": "/api/asr"
+    }
+  ]
+}
