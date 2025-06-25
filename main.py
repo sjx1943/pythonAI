@@ -503,7 +503,7 @@ def health_check():
 def root():
     """根端点，返回API信息"""
     return {
-        "message": "Azure Real-time Transcription Service with Enhanced Language Identification & Multilingual Support",
+        "message": "ASR API is running on Railway",
         "version": "5.0",
         "docs": "/docs",
         "health": "/health",
@@ -541,5 +541,8 @@ async def get_audio(filename: str):
     return FileResponse(file_path, media_type="audio/mpeg")
 
 
-# 创建 handler 用于 Vercel
-handler = Mangum(app)
+# Railway 需要这个用于生产环境
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
