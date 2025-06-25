@@ -8,4 +8,5 @@ PIP_REQUIREMENTS = "requirements-netlify.txt"
 [functions]
 node_bundler = "esbuild"  # 与 Python 无关，可留默认
 external_node_modules = []
+included_files = ["**/*.py", "static_ffmpeg/**"]
 
