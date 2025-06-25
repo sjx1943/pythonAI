@@ -1,6 +1,6 @@
 [build]
 publish = "."        # 不需要静态站点
-functions = "netlify/functions"
+functions = "netlify/functions/asr"
 
 [build.environment]
 PIP_VERSION = "23.3.1" # 建议固定 pip 版本
