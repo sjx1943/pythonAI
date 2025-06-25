@@ -1,5 +1,6 @@
 [build]
-command = "pip install -r requirements-netlify.txt && python -m uvicorn asr_main:app --host 0.0.0.0 --port 8080"
+base = "."
+command = "pip install -r requirements-netlify.txt && python -m uvicorn asr_main:app --reload"
 functions = "functions"
 publish = "."
 
