@@ -1,7 +1,13 @@
 [build]
 base = "."
-command = "pip install -r requirements-netlify.txt && python -m uvicorn asr_main:app --reload"
-functions = "functions"
+command = """
+    pip install --upgrade pip &&
+    apt-get update &&
+    apt-get install -y libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev &&
+    pip install -r requirements-netlify.txt &&
+    python -m uvicorn asr_main:app
+  """
+functions = "netlify/functions"
 publish = "."
 
 [[redirects]]
