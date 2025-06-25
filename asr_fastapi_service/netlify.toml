@@ -1,4 +1,5 @@
 [build]
+command = "echo 'Current directory:' && pwd && echo 'Listing project structure:' && find . -name '*.py' -o -name 'netlify' -type d && echo 'Functions directory contents:' && ls -la netlify/functions/ && echo 'ASR directory contents:' && ls -la netlify/functions/asr/"
 publish = ""
 functions = "netlify/functions"
 
@@ -8,7 +9,6 @@ PYTHON_VERSION = "3.12"
 PIP_REQUIREMENTS = "requirements.txt"
 
 [functions]
-# 包含所有需要的文件
 included_files = [
     "netlify/functions/**/*.py",
     "netlify/functions/**/static_ffmpeg/**"
