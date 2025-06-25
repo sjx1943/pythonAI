@@ -1,6 +1,6 @@
 [build]
 publish = "."        # 不需要静态站点
-functions = "netlify/functions/asr"
+functions = "netlify/functions"
 
 [build.environment]
 PIP_VERSION = "23.3.1" # 建议固定 pip 版本
@@ -8,5 +8,5 @@ PYTHON_VERSION = "3.12" # 建议固定 Python 版本
 PIP_REQUIREMENTS = "requirements-netlify.txt"
 
 [functions]
-included_files = ["netlify/functions/asr/static_ffmpge/ffmpeg"]
+included_files = ["netlify/functions/**"]
 
