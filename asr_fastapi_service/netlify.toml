@@ -9,8 +9,6 @@ PYTHON_VERSION = "3.12"
 PIP_REQUIREMENTS = "requirements.txt"
 
 [functions]
-name = "asr"
-handler = "/functions/asr.handler"
 included_files = [
     "functions/*.py",
     "functions/static_ffmpeg/**"
