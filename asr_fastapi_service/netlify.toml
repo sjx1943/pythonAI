@@ -9,6 +9,6 @@ PIP_REQUIREMENTS = "requirements.txt"
 
 [functions]
 included_files = [
-    "functions/**/*.py",
-    "functions/**/static_ffmpeg/**"
+    "functions/*.py",
+    "functions/static_ffmpeg/**"
 ]
