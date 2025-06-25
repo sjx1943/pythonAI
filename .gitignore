@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+# Netlify
+temp_audio/
+
+
+# 新增内容
+*.pyo
+*.pyd
+*.pyz
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
