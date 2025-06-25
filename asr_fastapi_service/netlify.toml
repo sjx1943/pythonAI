@@ -1,7 +1,6 @@
 [build]
-command = "echo 'Current directory:' && pwd && echo 'Listing project structure:' && find . -name '*.py' -o -name 'netlify' -type d && echo 'Functions directory contents:' && ls -la netlify/functions/ && echo 'ASR directory contents:' && ls -la netlify/functions/asr/"
 publish = ""
-functions = "netlify/functions"
+functions = "functions"
 
 [build.environment]
 PIP_VERSION = "23.3.1"
