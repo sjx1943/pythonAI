@@ -1,16 +1,11 @@
 [build]
-base = "."
-command = """
-    pip install --upgrade pip &&
-    apt-get update &&
-    apt-get install -y libavformat-dev libavcodec-dev libavdevice-dev libavutil-dev libswscale-dev libavresample-dev &&
-    pip install -r requirements-netlify.txt &&
-    python -m uvicorn asr_main:app
-  """
+publish = ""        # 不需要静态站点
 functions = "netlify/functions"
-publish = "."
 
-[[redirects]]
-from = "/*"
-to = "/.netlify/functions/server"
-status = 200
+[build.environment]
+PIP_REQUIREMENTS = "requirements-netlify.txt"
+
+[functions]
+node_bundler = "esbuild"  # 与 Python 无关，可留默认
+external_node_modules = []
+

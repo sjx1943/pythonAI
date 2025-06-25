@@ -17,6 +17,7 @@ from pydub import AudioSegment
 import io
 import noisereduce as nr
 import numpy as np
+from mangum import Mangum
 
 load_dotenv()
 
@@ -106,8 +107,8 @@ def convert_audio_to_wav(audio_data: bytes) -> str:
         audio_segment = audio_segment.set_channels(1)
         audio_segment = audio_segment.set_sample_width(2)
 
-        # 创建一个临时文件来保存WAV数据
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_wav_file:
+        # 创建一个临时文件来保存WAV数据，显式指定目录为 /tmp
+        with tempfile.NamedTemporaryFile(suffix='.wav', dir="/tmp", delete=False) as temp_wav_file:
             audio_segment.export(temp_wav_file.name, format="wav")
             return temp_wav_file.name
 
@@ -493,16 +494,25 @@ def root():
         "supported_languages": "/supported-languages"
     }
 
+from fastapi import Request
+
 @app.post("/upload-audio")
-async def upload_audio(file: UploadFile = File(...)):
+async def upload_audio(request: Request, file: UploadFile = File(...)):  # 调整参数顺序
     """上传音频文件并返回临时访问URL"""
     try:
         temp_dir = "temp_audio"
         os.makedirs(temp_dir, exist_ok=True)
         file_path = os.path.join(temp_dir, file.filename)
+
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-        return {"url": f"http://localhost:8000/audio/{file.filename}", "expires": "1 hour"}
+
+        base_url = str(request.base_url)  # 直接获取 base_url
+
+        return {
+            "url": f"{base_url}audio/{file.filename}",
+            "expires": "1 hour"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
@@ -513,3 +523,10 @@ async def get_audio(filename: str):
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
     return FileResponse(file_path, media_type="audio/mpeg")
+
+handler = Mangum(app)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8080)
