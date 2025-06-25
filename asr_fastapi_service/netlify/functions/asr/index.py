@@ -541,8 +541,3 @@ async def get_audio(filename: str):
     return FileResponse(file_path, media_type="audio/mpeg")
 
 handler = Mangum(app)
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8080)
