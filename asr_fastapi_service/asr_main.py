@@ -43,7 +43,7 @@ class AudioInput(BaseModel):
     candidate_locales: Optional[List[str]] = Field(
         default=None,
         description="List of candidate languages for automatic detection. If not provided, a comprehensive list will be used.",
-        example=["zh-CN", "en-US", "ja-JP"]
+        example=["ja-JP", "en-US", "es-ES"]
     )
     enable_diarization: bool = Field(
         default=False,
