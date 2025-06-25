@@ -11,7 +11,10 @@ PIP_REQUIREMENTS = "requirements.txt"
 # 包含所有 Python 文件和 static_ffmpeg 目录
 included_files = ["netlify/functions/**/*.py", "netlify/functions/**/static_ffmpeg/**"]
 # 明确指定函数入口文件
+
 [[functions]]
 name = "asr"
 path = "netlify/functions/asr"
 handler = "index.handler"
+# 把 included_files 移到具体函数定义中
+included_files = ["netlify/functions/**/*.py", "netlify/functions/**/static_ffmpeg/**"]
