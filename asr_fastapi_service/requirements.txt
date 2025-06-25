@@ -1,0 +1,12 @@
+mangum
+fastapi
+uvicorn[standard]
+python-multipart
+azure-cognitiveservices-speech
+pydub
+noisereduce
+numpy
+python-dotenv
+ffmpeg-python
+requests
+pydantic
