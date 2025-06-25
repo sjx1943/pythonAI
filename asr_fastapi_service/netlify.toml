@@ -9,6 +9,6 @@ PIP_REQUIREMENTS = "requirements.txt"
 
 [functions]
 included_files = [
-    "netlify/functions/**/*.py",
-    "netlify/functions/**/static_ffmpeg/**"
+    "functions/**/*.py",
+    "functions/**/static_ffmpeg/**"
 ]
