@@ -20,7 +20,6 @@ import numpy as np
 from mangum import Mangum
 from pathlib import Path
 import logging
-import subprocess
 
 # 配置日志
 logger = logging.getLogger(__name__)
@@ -94,28 +93,24 @@ def get_default_candidate_locales() -> List[str]:
 
 def convert_audio_to_wav(audio_data: bytes) -> str:
     """
-    将下载的音频数据转码为WAV格式，支持非常规音频格式
+    将下载的音频数据（如MP3）正确转码为WAV格式并保存到临时文件。
+    这是修复 SPXERR_INVALID_HEADER 错误的关键。
     """
     try:
-        # 设置ffmpeg路径
+        # 设置 bundled ffmpeg 二进制文件的路径
         ffmpeg_path = Path(__file__).parent / "static_ffmpeg" / "ffmpeg"
         if ffmpeg_path.exists():
             AudioSegment.converter = str(ffmpeg_path)
             logger.info(f"Using bundled ffmpeg from: {ffmpeg_path}")
         else:
-            logger.warning("Bundled ffmpeg not found. Relying on system-installed ffmpeg")
+            logger.warning("Bundled ffmpeg not found. Relying on system-installed ffmpeg.")
 
         # 使用pydub从内存中的字节数据加载音频
         audio_segment = AudioSegment.from_file(io.BytesIO(audio_data))
-
-        # 音频增强：降噪处理（关键改进点）
+        # 音频增强：降噪处理
         audio_array = np.array(audio_segment.get_array_of_samples())
         audio_array = audio_array.astype(np.float32)
-        reduced_noise = nr.reduce_noise(
-            y=audio_array,
-            sr=audio_segment.frame_rate,
-            stationary=True
-        )
+        reduced_noise = nr.reduce_noise(y=audio_array, sr=audio_segment.frame_rate)
         audio_segment = AudioSegment(
             reduced_noise.astype(np.int16).tobytes(),
             frame_rate=audio_segment.frame_rate,
@@ -123,22 +118,18 @@ def convert_audio_to_wav(audio_data: bytes) -> str:
             channels=audio_segment.channels
         )
 
-        audio_segment = audio_segment.high_pass_filter(80)  # 过滤低频噪声
-        audio_segment = audio_segment.normalize()
-
-        # 确保音频为16kHz单声道，16-bit PCM
+        # 确保音频为16kHz单声道，16-bit PCM，这是Azure SDK推荐的格式
         audio_segment = audio_segment.set_frame_rate(16000)
         audio_segment = audio_segment.set_channels(1)
         audio_segment = audio_segment.set_sample_width(2)
 
-        # 创建临时文件
+        # 创建一个临时文件来保存WAV数据，显式指定目录为 /tmp
         with tempfile.NamedTemporaryFile(suffix='.wav', dir="/tmp", delete=False) as temp_wav_file:
             audio_segment.export(temp_wav_file.name, format="wav")
             return temp_wav_file.name
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to convert audio to WAV format: {str(e)}")
-
 
 class RealTimeTranscriber:
     """Azure Speech SDK实时转录器"""
@@ -175,7 +166,6 @@ class RealTimeTranscriber:
             if multilingual_detection:
                 if not candidate_locales:
                     candidate_locales = get_default_candidate_locales()
-
 
                     # --- 关键优化：设置此属性以提高多语言识别准确性 ---
                 if hasattr(speechsdk.PropertyId, 'SpeechServiceConnection_ContinuousLanguageIdPriority'):
@@ -435,30 +425,6 @@ def extract_text_and_language_info(result: dict) -> tuple[str, str, dict]:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to extract text from result: {str(e)}")
 
-@app.post("/check-audio-format")
-async def check_audio_format(file: UploadFile = File(...)):
-    """检查音频文件格式"""
-    try:
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            content = await file.read()
-            tmp.write(content)
-            tmp_path = tmp.name
-
-        try:
-            audio = AudioSegment.from_file(tmp_path)
-            return {
-                "valid": True,
-                "format": audio.file_format,
-                "duration": len(audio),
-                "sample_rate": audio.frame_rate,
-                "channels": audio.channels
-            }
-        finally:
-            os.unlink(tmp_path)
-
-    except Exception as e:
-        return {"valid": False, "error": str(e)}
-
 @app.post("/transcribe", summary="Real-time Transcribe Audio from URL with Language Detection")
 def create_realtime_transcription(input_data: AudioInput):
     """
@@ -565,70 +531,24 @@ def root():
 from fastapi import Request
 
 @app.post("/upload-audio")
-async def upload_audio(request: Request, file: UploadFile = File(...)):
-    """上传音频文件并自动转换非常规格式"""
+async def upload_audio(request: Request, file: UploadFile = File(...)):  # 调整参数顺序
+    """上传音频文件并返回临时访问URL"""
     try:
         temp_dir = "temp_audio"
         os.makedirs(temp_dir, exist_ok=True)
+        file_path = os.path.join(temp_dir, file.filename)
 
-        # 读取文件内容
-        content = await file.read()
-        original_filename = file.filename
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-        # 生成唯一临时文件名
-        import uuid
-        temp_filename = f"temp_{uuid.uuid4().hex}"
+        base_url = str(request.base_url)  # 直接获取 base_url
 
-        # 如果是MP3/M4A等格式，先尝试转换
-        if original_filename.lower().endswith(('.mp3', '.m4a', '.aac')):
-            try:
-                # 创建临时输入文件
-                input_path = os.path.join(temp_dir, f"{temp_filename}_input")
-                with open(input_path, 'wb') as f:
-                    f.write(content)
-
-                # 输出文件路径
-                output_path = os.path.join(temp_dir, f"{temp_filename}.wav")
-
-                # 使用ffmpeg转换
-                cmd = f"ffmpeg -i {input_path} -ar 16000 -ac 1 -c:a pcm_s16le {output_path}"
-                result = subprocess.run(cmd.split(), capture_output=True)
-
-                if result.returncode != 0:
-                    raise ValueError(f"Audio conversion failed: {result.stderr.decode()}")
-
-                # 读取转换后的内容
-                with open(output_path, 'rb') as f:
-                    content = f.read()
-                final_filename = f"{original_filename.rsplit('.', 1)[0]}.wav"
-
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Conversion error: {str(e)}")
-            finally:
-                # 清理临时文件
-                for path in [input_path, output_path]:
-                    if path and os.path.exists(path):
-                        os.unlink(path)
-        else:
-            final_filename = original_filename
-
-        # 保存最终文件
-        file_path = os.path.join(temp_dir, final_filename)
-        with open(file_path, 'wb') as f:
-            f.write(content)
-
-        base_url = str(request.base_url)
         return {
-            "url": f"{base_url}audio/{final_filename}",
-            "expires": "1 hour",
-            "original_format": original_filename.split('.')[-1],
-            "converted": original_filename != final_filename
+            "url": f"{base_url}audio/{file.filename}",
+            "expires": "1 hour"
         }
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
-
 
 @app.get("/audio/{filename}")
 async def get_audio(filename: str):
@@ -639,8 +559,8 @@ async def get_audio(filename: str):
     return FileResponse(file_path, media_type="audio/mpeg")
 
 
-# 本地测试时启动
+# 调试用
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8002))
+    port = int(os.environ.get("PORT", 8001))
     uvicorn.run(app, host="0.0.0.0", port=port)
