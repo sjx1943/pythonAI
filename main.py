@@ -3,6 +3,9 @@
 import os
 import requests
 import tempfile
+import uuid
+import asyncio
+import aiohttp
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -10,7 +13,7 @@ from typing import Optional, List
 import json
 from fastapi import UploadFile, File
 import shutil
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 import azure.cognitiveservices.speech as speechsdk
 import time
 from pydub import AudioSegment
@@ -53,9 +56,9 @@ class AudioInput(BaseModel):
         example="zh-CN"
     )
     candidate_locales: Optional[List[str]] = Field(
-        default=None,
+        default=["zh-CN","ja-JP", "en-US", "es-ES"],
         description="List of candidate languages for automatic detection. If not provided, a comprehensive list will be used.",
-        example=["ja-JP", "en-US", "es-ES"]
+        example=["zh-CN","ja-JP", "en-US", "es-ES"]
     )
     enable_diarization: bool = Field(
         default=False,
@@ -68,28 +71,29 @@ class AudioInput(BaseModel):
         example="Continuous"
     )
     multilingual_detection: bool = Field(
-        default=False,
+        default=True,
         description="Enable multilingual detection for mixed-language audio",
-        example=False
+        example=True
     )
 
-def download_audio_file(url: str) -> bytes:
-    """下载音频文件并返回字节数据"""
+async def download_audio_file(url: str) -> bytes:
+    """异步下载音频文件并返回字节数据"""
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
-        response = requests.get(url, headers=headers, timeout=30)
-        response.raise_for_status()
-        return response.content
-    except requests.exceptions.RequestException as e:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=60)) as response:
+                response.raise_for_status()
+                return await response.read()
+    except aiohttp.ClientError as e:
         raise HTTPException(status_code=400, detail=f"Failed to download audio from URL: {str(e)}")
 
 def get_default_candidate_locales() -> List[str]:
     """获取默认的候选语言列表，优化常用语言的检测顺序"""
     return [
         "en-US", "zh-CN", "ja-JP", "es-ES", "fr-FR",
-        "de-DE", "pt-BR", "it-IT", "ru-RU", "ko-KR"
+        "de-DE", "pt-BR", "it-IT", "ru-RU", "ko-KR", "zh-TW"
     ]
 
 def convert_audio_to_wav(audio_data: bytes) -> str:
@@ -176,10 +180,7 @@ class RealTimeTranscriber:
                 if not candidate_locales:
                     candidate_locales = get_default_candidate_locales()
 
-
-                    # --- 关键优化：设置此属性以提高多语言识别准确性 ---
                 if hasattr(speechsdk.PropertyId, 'SpeechServiceConnection_ContinuousLanguageIdPriority'):
-                    # --- 关键优化：设置此属性以提高多语言识别准确性 ---
                     speech_config.set_property(
                         speechsdk.PropertyId.SpeechServiceConnection_ContinuousLanguageIdPriority, "Accuracy"
                     )
@@ -187,7 +188,6 @@ class RealTimeTranscriber:
                 speech_config.set_property(speechsdk.PropertyId.SpeechServiceConnection_LanguageIdMode, "Continuous")
 
                 auto_detect_source_language_config = speechsdk.languageconfig.AutoDetectSourceLanguageConfig(languages=candidate_locales)
-
 
                 speech_recognizer = speechsdk.SpeechRecognizer(
                     speech_config=speech_config,
@@ -209,8 +209,6 @@ class RealTimeTranscriber:
                     auto_detect_source_language_config=auto_detect_source_language_config,
                     audio_config=audio_config
                 )
-
-                # --- 逻辑优化结束 ---
 
             self.results = []
             self.is_completed = False
@@ -459,8 +457,8 @@ async def check_audio_format(file: UploadFile = File(...)):
     except Exception as e:
         return {"valid": False, "error": str(e)}
 
-@app.post("/transcribe", summary="Real-time Transcribe Audio from URL with Language Detection")
-def create_realtime_transcription(input_data: AudioInput):
+@app.post("/real-time-transcribe", summary="Real-time Transcribe Audio from URL with Language Detection")
+async def real_time_transcription(input_data: AudioInput):
     """
     使用Azure Speech SDK Real-time API转录音频URL
     支持智能语言检测、指定语言转录和多语言混合识别
@@ -473,62 +471,137 @@ def create_realtime_transcription(input_data: AudioInput):
                 detail="Azure Speech Service credentials not configured. Please set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION environment variables."
             )
 
-        # 1. 下载音频文件
-        audio_data = download_audio_file(input_data.audio_url)
+        # 处理本地 URL，直接读取文件
+        if input_data.audio_url.startswith("http://localhost:8002/audio/"):
+            filename = input_data.audio_url.split("/audio/")[1]
+            audio_file_path = os.path.join("temp_audio", filename)
+            if not os.path.exists(audio_file_path):
+                raise HTTPException(status_code=404, detail="Audio file not found in temp directory")
+            with open(audio_file_path, 'rb') as f:
+                audio_data = f.read()
+        else:
+            # 异步下载远程 URL
+            audio_data = await download_audio_file(input_data.audio_url)
 
-        # 2. 使用Real-time Transcription API进行转录
-        # 修改点：当启用多语言检测时， 强制忽略指定的语言
-        transcription_result = transcribe_with_realtime_api(
-            audio_data=audio_data,
-            language=None if input_data.multilingual_detection else input_data.language,
-            candidate_locales=input_data.candidate_locales,
-            enable_diarization=input_data.enable_diarization,
-            multilingual_detection=input_data.multilingual_detection
+        audio_file_path = convert_audio_to_wav(audio_data)
+
+        # 创建异步生成器函数
+        async def generate():
+            transcriber = RealTimeTranscriber(AZURE_SPEECH_KEY, AZURE_SPEECH_REGION)
+            audio_config = speechsdk.audio.AudioConfig(filename=audio_file_path)
+
+            # 使用队列来收集结果
+            from collections import deque
+            result_queue = deque()
+
+            def on_recognized(evt):
+                if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
+                    try:
+                        json_result = json.loads(evt.result.properties.get(speechsdk.PropertyId.SpeechServiceResponse_JsonResult))
+                        nbest = json_result.get('NBest', [])
+                    except:
+                        nbest = []
+
+                    result = {
+                        "Id": str(uuid.uuid4()),
+                        "RecognitionStatus": "Success",
+                        "Offset": evt.result.offset,
+                        "Duration": evt.result.duration,
+                        "PrimaryLanguage": {
+                            "Language": evt.result.properties.get(speechsdk.PropertyId.SpeechServiceConnection_AutoDetectSourceLanguageResult, "unknown"),
+                            "Confidence": "Unknown"
+                        },
+                        "Channel": 0,
+                        "DisplayText": evt.result.text,
+                        "NBest": nbest
+                    }
+                    result_queue.append(result)
+
+            # 配置识别器
+            speech_config = speechsdk.SpeechConfig(
+                subscription=AZURE_SPEECH_KEY,
+                region=AZURE_SPEECH_REGION
+            )
+            speech_config.output_format = speechsdk.OutputFormat.Detailed
+            speech_config.request_word_level_timestamps()
+
+            # 配置说话人分离
+            if input_data.enable_diarization:
+                speech_config.set_property(
+                    speechsdk.PropertyId.SpeechServiceConnection_EnableSpeakerDiarization,
+                    "false"
+                )
+
+            # 多语言检测配置
+            if input_data.multilingual_detection:
+                candidate_locales = input_data.candidate_locales or get_default_candidate_locales()
+
+                if hasattr(speechsdk.PropertyId, 'SpeechServiceConnection_ContinuousLanguageIdPriority'):
+                    speech_config.set_property(
+                        speechsdk.PropertyId.SpeechServiceConnection_ContinuousLanguageIdPriority,
+                        "Accuracy"
+                    )
+
+                speech_config.set_property(
+                    speechsdk.PropertyId.SpeechServiceConnection_LanguageIdMode,
+                    input_data.language_identification_mode
+                )
+
+                auto_detect_source_language_config = speechsdk.languageconfig.AutoDetectSourceLanguageConfig(
+                    languages=candidate_locales
+                )
+
+                recognizer = speechsdk.SpeechRecognizer(
+                    speech_config=speech_config,
+                    auto_detect_source_language_config=auto_detect_source_language_config,
+                    audio_config=audio_config
+                )
+            elif input_data.language:
+                # 单语言模式
+                speech_config.speech_recognition_language = input_data.language
+                recognizer = speechsdk.SpeechRecognizer(
+                    speech_config=speech_config,
+                    audio_config=audio_config
+                )
+            else:
+                # 自动语言检测
+                candidate_locales = input_data.candidate_locales or get_default_candidate_locales()
+                auto_detect_source_language_config = speechsdk.languageconfig.AutoDetectSourceLanguageConfig(
+                    languages=candidate_locales
+                )
+                recognizer = speechsdk.SpeechRecognizer(
+                    speech_config=speech_config,
+                    auto_detect_source_language_config=auto_detect_source_language_config,
+                    audio_config=audio_config
+                )
+
+            recognizer.recognized.connect(on_recognized)
+            recognizer.start_continuous_recognition()
+
+            try:
+                while not transcriber.is_completed:
+                    if result_queue:
+                        result = result_queue.popleft()
+                        json_str = json.dumps(result, ensure_ascii=False)
+                        # yield f"data: {json.dumps(result_queue.popleft())}\n\n"
+                        yield f"data: {json_str}\n\n"
+                    await asyncio.sleep(0.1)
+            finally:
+                recognizer.stop_continuous_recognition()
+                if os.path.exists(audio_file_path):
+                    os.unlink(audio_file_path)
+
+        return StreamingResponse(
+            generate(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive"
+            }
         )
 
-        # 3. 根据是否启用多语言检测处理结果
-        if input_data.multilingual_detection:
-            # 多语言模式
-            transcribed_text, detected_languages, language_details = extract_multilingual_info(transcription_result)
-
-            return {
-                "asr_text": transcribed_text,
-                "language_specified": input_data.language,
-                "languages_detected": detected_languages,
-                "language_timeline": transcription_result.get("multilingual_segments", []),
-                "language_detection_details": language_details,
-                "candidate_locales_used": input_data.candidate_locales or get_default_candidate_locales(),
-                "auto_detection_used": True,  # 修改点：多语言模式下总是使用自动检测
-                "language_identification_mode": input_data.language_identification_mode,
-                "service": "azure_realtime_transcription",
-                "enhanced_detection": True,
-                "multilingual_mode": True,
-                "total_segments": transcription_result.get("total_segments", 1),
-                "raw_result": transcription_result
-            }
-        else:
-            # 单语言模式
-            transcribed_text, detected_language, language_details = extract_text_and_language_info(transcription_result)
-
-            # 5. 返回增强的结果
-            return {
-                "asr_text": transcribed_text,
-                "language_specified": input_data.language,
-                "language_detected": detected_language,
-                "language_detection_details": language_details,
-                "candidate_locales_used": input_data.candidate_locales or get_default_candidate_locales() if not input_data.language else None,
-                "auto_detection_used": input_data.language is None,
-                "language_identification_mode": input_data.language_identification_mode if not input_data.language else None,
-                "service": "azure_realtime_transcription",
-                "enhanced_detection": True,
-                "multilingual_mode": False,
-                "raw_result": transcription_result
-            }
-
-    except HTTPException as e:
-        raise e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An internal server error occurred: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/supported-languages")
 def get_supported_languages():
@@ -576,7 +649,6 @@ async def upload_audio(request: Request, file: UploadFile = File(...)):
         original_filename = file.filename
 
         # 生成唯一临时文件名
-        import uuid
         temp_filename = f"temp_{uuid.uuid4().hex}"
 
         # 如果是MP3/M4A等格式，先尝试转换
