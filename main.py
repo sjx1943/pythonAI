@@ -20,7 +20,7 @@ from pydub import AudioSegment
 import io
 import noisereduce as nr
 import numpy as np
-from mangum import Mangum
+from fastapi import Form
 from pathlib import Path
 import logging
 import subprocess
@@ -101,14 +101,15 @@ def convert_audio_to_wav(audio_data: bytes) -> str:
     将下载的音频数据转码为WAV格式，支持非常规音频格式
     """
     try:
-        # 设置ffmpeg路径
-        ffmpeg_path = Path(__file__).parent / "static_ffmpeg" / "ffmpeg"
-        if ffmpeg_path.exists():
-            AudioSegment.converter = str(ffmpeg_path)
-            logger.info(f"Using bundled ffmpeg from: {ffmpeg_path}")
-        else:
-            logger.warning("Bundled ffmpeg not found. Relying on system-installed ffmpeg")
+        # # 设置ffmpeg路径
+        # ffmpeg_path = Path(__file__).parent / "static_ffmpeg" / "ffmpeg"
+        # if ffmpeg_path.exists():
+        #     AudioSegment.converter = str(ffmpeg_path)
+        #     logger.info(f"Using bundled ffmpeg from: {ffmpeg_path}")
+        # else:
+        #     logger.warning("Bundled ffmpeg not found. Relying on system-installed ffmpeg")
 
+        logger.info("Relying on system-installed ffmpeg")
         # 使用pydub从内存中的字节数据加载音频
         audio_segment = AudioSegment.from_file(io.BytesIO(audio_data))
 
@@ -457,6 +458,69 @@ async def check_audio_format(file: UploadFile = File(...)):
     except Exception as e:
         return {"valid": False, "error": str(e)}
 
+
+@app.post("/fast-transcribe", summary="Fast Transcription API")
+async def fast_transcription(
+    audio_url: str = Form(None, description="Audio URL to transcribe"),
+    audio_file: UploadFile = File(None, description="Audio file to upload"),
+    locales: str = Form('[]', description="JSON array of locales to detect")
+):
+    """
+    快速转录API，支持URL和文件上传两种方式
+    使用Azure Speech-to-Text REST API进行转录
+    """
+    try:
+        # 验证密钥配置
+        if not AZURE_SPEECH_KEY:
+            raise HTTPException(
+                status_code=500,
+                detail="Azure Speech Service credentials not configured"
+            )
+
+        # 准备表单数据
+        data = aiohttp.FormData()
+        if audio_url:
+            # 下载音频数据
+            audio_data = await download_audio_file(audio_url)
+            data.add_field('audio', audio_data, filename='audio.wav', content_type='audio/wav')
+            data.add_field('definition', f'{{"locales": {locales}}}')
+        elif audio_file:
+            # 使用上传的文件
+            content = await audio_file.read()
+            data.add_field('audio', content, filename=audio_file.filename, content_type=audio_file.content_type)
+            data.add_field('definition', f'{{"locales": {locales}}}')
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="Either audio_url or audio_file must be provided"
+            )
+
+        # 准备请求头
+        headers = {
+            "Ocp-Apim-Subscription-Key": AZURE_SPEECH_KEY
+        }
+
+        # 发送请求到Azure API
+        api_url = "https://eastus2.api.cognitive.microsoft.com/speechtotext/transcriptions:transcribe?api-version=2024-11-15"
+        async with aiohttp.ClientSession() as session:
+            async with session.post(api_url, headers=headers, data=data) as response:
+                if response.status != 200:
+                    error_detail = await response.text()
+                    raise HTTPException(
+                        status_code=response.status,
+                        detail=f"Azure API error: {error_detail}"
+                    )
+                return await response.json()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Fast transcription failed: {str(e)}"
+        )
+
+
 @app.post("/real-time-transcribe", summary="Real-time Transcribe Audio from URL with Language Detection")
 async def real_time_transcription(input_data: AudioInput):
     """
@@ -605,7 +669,7 @@ async def real_time_transcription(input_data: AudioInput):
 
 @app.get("/supported-languages")
 def get_supported_languages():
-    """获取支持的语言列表"""
+    """获取支持语言列表"""
     return {
         "supported_languages": get_default_candidate_locales(),
         "language_identification_modes": ["Continuous", "AtStart"],
@@ -628,7 +692,7 @@ def health_check():
 def root():
     """根端点，返回API信息"""
     return {
-        "message": "ASR API is running on Railway",
+        "message": "ASR API is running on VPS",
         "version": "5.0",
         "docs": "/docs",
         "health": "/health",
