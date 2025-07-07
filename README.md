@@ -40,6 +40,12 @@ curl -X POST "http://localhost:8002/fast-transcribe" \
   -F "audio_file=@\"temp_audio/OSR_us_000_0019_8k.wav\"" \
   -F "locales=[]"
 ```
+为了适配coze的请求体格式，请求体必须是有效的JSON字符串，故重新起了新端点，实现application/json格式的url转录：
+curl -X POST "http://localhost:9000/transcribe-json"   -H "accept: application/json"   -H "Content-Type: application/json"   -d '{
+    "audio_url": "https://www.voiptroubleshooter.com/open_speech/american/OSR_us_000_0019_8k.wav",
+    "locales": "[]"
+  }'
+
 
 ## 注意事项
 
