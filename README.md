@@ -46,6 +46,13 @@ curl -X POST "http://localhost:9000/transcribe-json"   -H "accept: application/j
     "audio_url": "https://www.voiptroubleshooter.com/open_speech/american/OSR_us_000_0019_8k.wav",
     "locales": "[]"
   }'
+
+
+curl -X POST "https://happepls.pics:9080/transcribe-json"   -H "accept: application/json"   -H "Content-Type: application/json"   -d '{
+    "audio_url": "https://www.book2.nl/book2/ZH/SOUND/0703.mp3",
+    "locales": "[]"
+  }'
+
 ```
 
 ## 注意事项
